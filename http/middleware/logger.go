@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/rem-consultant/common/logging"
+	"github.com/vladzorgan/common/logging"
 )
 
 // RequestIDHeader определяет заголовок для идентификатора запроса

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rem-consultant/common/logging"
 	"github.com/streadway/amqp"
+	"github.com/vladzorgan/common/logging"
 )
 
 // HandlerFunc представляет функцию-обработчик сообщений

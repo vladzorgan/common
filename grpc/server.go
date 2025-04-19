@@ -7,9 +7,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/rem-consultant/common/config"
-	"github.com/rem-consultant/common/grpc/interceptors"
-	"github.com/rem-consultant/common/logging"
+	"github.com/vladzorgan/common/config"
+	"github.com/vladzorgan/common/grpc/interceptors"
+	"github.com/vladzorgan/common/logging"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

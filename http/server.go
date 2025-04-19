@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rem-consultant/common/config"
-	"github.com/rem-consultant/common/health"
-	"github.com/rem-consultant/common/http/middleware"
-	"github.com/rem-consultant/common/logging"
-	"github.com/rem-consultant/common/metrics"
+	"github.com/vladzorgan/common/config"
+	"github.com/vladzorgan/common/health"
+	"github.com/vladzorgan/common/http/middleware"
+	"github.com/vladzorgan/common/logging"
+	"github.com/vladzorgan/common/metrics"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

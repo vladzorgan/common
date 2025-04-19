@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/rem-consultant/common/logging"
+	"github.com/vladzorgan/common/logging"
 )
 
 // Client представляет клиент Redis

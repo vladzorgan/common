@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rem-consultant/common/logging"
+	"github.com/vladzorgan/common/logging"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 
-	"github.com/rem-consultant/common/logging"
+	"github.com/vladzorgan/common/logging"
 	"gorm.io/gorm"
 )
 
