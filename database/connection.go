@@ -8,7 +8,7 @@ import (
 	"github.com/vladzorgan/common/logging"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	goormlogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
 
@@ -23,7 +23,7 @@ type DatabaseOptions struct {
 	// Имена таблиц в единственном числе
 	SingularTable bool
 	// Уровень логирования GORM
-	LogLevel logger.LogLevel
+	LogLevel goormlogger.LogLevel
 	// Максимальное количество простаивающих соединений
 	MaxIdleConns int
 	// Максимальное количество открытых соединений
@@ -36,7 +36,7 @@ type DatabaseOptions struct {
 func DefaultDatabaseOptions() *DatabaseOptions {
 	return &DatabaseOptions{
 		SingularTable:   true,
-		LogLevel:        logger.Info,
+		LogLevel:        goormlogger.Info,
 		MaxIdleConns:    10,
 		MaxOpenConns:    100,
 		ConnMaxLifetime: time.Hour,
@@ -44,8 +44,10 @@ func DefaultDatabaseOptions() *DatabaseOptions {
 }
 
 // NewDatabase создает новое соединение с базой данных
-func NewDatabase(databaseURL string, options *DatabaseOptions) (*Database, error) {
-	loggerHandler := logging.NewLogger()
+func NewDatabase(databaseURL string, logger logging.Logger, options *DatabaseOptions) (*Database, error) {
+	if logger == nil {
+		logger = logging.NewLogger()
+	}
 
 	if options == nil {
 		options = DefaultDatabaseOptions()
@@ -53,7 +55,7 @@ func NewDatabase(databaseURL string, options *DatabaseOptions) (*Database, error
 
 	// Настраиваем конфигурацию GORM
 	config := &gorm.Config{
-		Logger: logger.Default.LogMode(options.LogLevel),
+		Logger: goormlogger.Default.LogMode(options.LogLevel),
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: options.SingularTable,
 		},
@@ -76,11 +78,11 @@ func NewDatabase(databaseURL string, options *DatabaseOptions) (*Database, error
 	sqlDB.SetMaxOpenConns(options.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(options.ConnMaxLifetime)
 
-	loggerHandler.Info("Successfully connected to database")
+	logger.Info("Successfully connected to database")
 
 	return &Database{
 		db:     db,
-		logger: loggerHandler,
+		logger: logger,
 	}, nil
 }
 
