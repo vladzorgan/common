@@ -31,12 +31,12 @@ func (p *GormTxProvider) GetTx(ctx context.Context) *gorm.DB {
 	if ok && tx != nil {
 		return tx
 	}
-	return p.db.DB().WithContext(ctx)
+	return p.db.GetDB().WithContext(ctx)
 }
 
 // RunInTransaction выполняет функцию в транзакции
 func RunInTransaction(ctx context.Context, db *Database, fn func(ctx context.Context) error) error {
-	return db.DB().Transaction(func(tx *gorm.DB) error {
+	return db.GetDB().Transaction(func(tx *gorm.DB) error {
 		// Создаем новый контекст с транзакцией
 		txCtx := context.WithValue(ctx, TransactionKey{}, tx)
 		return fn(txCtx)
@@ -73,7 +73,7 @@ func (m *TransactionMiddleware) Handler(next func(ctx context.Context) error) fu
 
 		// Начинаем новую транзакцию
 		var err error
-		err = m.db.DB().Transaction(func(tx *gorm.DB) error {
+		err = m.db.GetDB().Transaction(func(tx *gorm.DB) error {
 			// Создаем новый контекст с транзакцией
 			txCtx := context.WithValue(ctx, TransactionKey{}, tx)
 

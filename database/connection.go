@@ -44,10 +44,8 @@ func DefaultDatabaseOptions() *DatabaseOptions {
 }
 
 // NewDatabase создает новое соединение с базой данных
-func NewDatabase(databaseURL string, logger logging.Logger, options *DatabaseOptions) (*Database, error) {
-	if logger == nil {
-		logger = logging.NewLogger()
-	}
+func NewDatabase(databaseURL string, options *DatabaseOptions) (*Database, error) {
+	loggerHandler := logging.NewLogger()
 
 	if options == nil {
 		options = DefaultDatabaseOptions()
@@ -78,11 +76,11 @@ func NewDatabase(databaseURL string, logger logging.Logger, options *DatabaseOpt
 	sqlDB.SetMaxOpenConns(options.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(options.ConnMaxLifetime)
 
-	logger.Info("Successfully connected to database")
+	loggerHandler.Info("Successfully connected to database")
 
 	return &Database{
 		db:     db,
-		logger: logger,
+		logger: loggerHandler,
 	}, nil
 }
 
