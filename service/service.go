@@ -39,8 +39,8 @@ type Service[T BaseEntity, R any] interface {
 	Delete(ctx context.Context, id uint) (*R, error)
 	
 	// Операции с коллекциями
-	GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}) (*PaginationResponse[R], error)
-	Search(ctx context.Context, keyword string, skip, limit int, filters map[string]interface{}) (*PaginationResponse[R], error)
+	GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error)
+	Search(ctx context.Context, keyword string, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error)
 	GetByField(ctx context.Context, field string, value interface{}) (*R, error)
 	GetAllByField(ctx context.Context, field string, value interface{}, skip, limit int) (*PaginationResponse[R], error)
 	
@@ -213,9 +213,9 @@ func (s *BaseService[T, R]) Delete(ctx context.Context, id uint) (*R, error) {
 	return response, nil
 }
 
-// GetAll получает все сущности с пагинацией и фильтрацией
-func (s *BaseService[T, R]) GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}) (*PaginationResponse[R], error) {
-	entities, total, err := s.repo.GetAll(ctx, skip, limit, filters)
+// GetAll получает все сущности с пагинацией, фильтрацией и сортировкой
+func (s *BaseService[T, R]) GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error) {
+	entities, total, err := s.repo.GetAll(ctx, skip, limit, filters, sort)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при получении списка %s: %v", s.entityName, err)
 	}
@@ -232,12 +232,12 @@ func (s *BaseService[T, R]) GetAll(ctx context.Context, skip, limit int, filters
 	}, nil
 }
 
-// Search выполняет поиск сущностей
-func (s *BaseService[T, R]) Search(ctx context.Context, keyword string, skip, limit int, filters map[string]interface{}) (*PaginationResponse[R], error) {
+// Search выполняет поиск сущностей с сортировкой
+func (s *BaseService[T, R]) Search(ctx context.Context, keyword string, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error) {
 	// Запуск таймера для измерения производительности
 	startTime := time.Now()
 	
-	entities, total, err := s.repo.Search(ctx, keyword, skip, limit, filters)
+	entities, total, err := s.repo.Search(ctx, keyword, skip, limit, filters, sort)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при поиске %s: %v", s.entityName, err)
 	}
