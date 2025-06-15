@@ -1,0 +1,216 @@
+syntax = "proto3";
+
+package location;
+
+option go_package = "location-service-go/pkg/proto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service LocationService {
+  // Регион
+  rpc GetRegion(GetRegionRequest) returns (RegionResponse);
+  rpc GetRegions(GetRegionsRequest) returns (GetRegionsResponse);
+  rpc CreateRegion(CreateRegionRequest) returns (RegionResponse);
+  rpc UpdateRegion(UpdateRegionRequest) returns (RegionResponse);
+  rpc DeleteRegion(DeleteRegionRequest) returns (RegionResponse);
+
+  // Город
+  rpc GetCity(GetCityRequest) returns (CityResponse);
+  rpc GetCityBySlug(GetCityBySlugRequest) returns (CityResponse);
+  rpc GetCities(GetCitiesRequest) returns (GetCitiesResponse);
+  rpc GetLargestCities(GetLargestCitiesRequest) returns (GetCitiesResponse);
+  rpc CreateCity(CreateCityRequest) returns (CityResponse);
+  rpc UpdateCity(UpdateCityRequest) returns (CityResponse);
+  rpc DeleteCity(DeleteCityRequest) returns (CityResponse);
+
+  // Логи поиска
+  rpc GetSearchStats(google.protobuf.Empty) returns (SearchStatsResponse);
+  rpc GetMostSearchedQueries(GetMostSearchedQueriesRequest) returns (MostSearchedQueriesResponse);
+}
+
+// Запросы и ответы для регионов
+
+message GetRegionRequest {
+  uint32 id = 1;
+}
+
+message GetRegionsRequest {
+  int32 skip = 1;
+  int32 limit = 2;
+  SortOptions sort = 3;
+}
+
+message SearchRegionsRequest {
+  string keyword = 1;
+  int32 skip = 2;
+  int32 limit = 3;
+  SortOptions sort = 4;
+}
+
+message CreateRegionRequest {
+  string name = 1;
+  string code = 2;
+  string country = 3;
+}
+
+message UpdateRegionRequest {
+  uint32 id = 1;
+  string name = 2;
+  string code = 3;
+  string country = 4;
+}
+
+message DeleteRegionRequest {
+  uint32 id = 1;
+}
+
+message RegionResponse {
+  uint32 id = 1;
+  string name = 2;
+  string code = 3;
+  string country = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message GetRegionsResponse {
+  repeated RegionResponse items = 1;
+  PaginationResponse pagination = 2;
+}
+
+message RegionWithCitiesResponse {
+  RegionResponse region = 1;
+  repeated CityResponse cities = 2;
+}
+
+// Запросы и ответы для городов
+
+message GetCityRequest {
+  uint32 id = 1;
+}
+
+message GetCityBySlugRequest {
+  string slug = 1;
+}
+
+message GetCitiesRequest {
+  int32 skip = 1;
+  int32 limit = 2;
+  CityFilter filter = 3;
+  SortOptions sort = 4;
+}
+
+message GetCitiesByRegionRequest {
+  uint32 region_id = 1;
+  int32 skip = 2;
+  int32 limit = 3;
+  SortOptions sort = 4;
+}
+
+message SearchCitiesRequest {
+  string keyword = 1;
+  optional uint32 region_id = 2;
+  int32 skip = 3;
+  int32 limit = 4;
+  SortOptions sort = 5;
+}
+
+message GetLargestCitiesRequest {
+  int32 limit = 1;
+  SortOptions sort = 2;
+}
+
+message CreateCityRequest {
+  string name = 1;
+  uint32 region_id = 2;
+  int32 population = 3;
+  bool is_regional_center = 4;
+  double latitude = 5;
+  double longitude = 6;
+  string slug = 7;
+}
+
+message UpdateCityRequest {
+  uint32 id = 1;
+  optional string name = 2;
+  optional uint32 region_id = 3;
+  optional int32 population = 4;
+  optional bool is_regional_center = 5;
+  optional double latitude = 6;
+  optional double longitude = 7;
+  optional string slug = 8;
+}
+
+message DeleteCityRequest {
+  uint32 id = 1;
+}
+
+message CityResponse {
+  uint32 id = 1;
+  string name = 2;
+  uint32 region_id = 3;
+  int32 population = 4;
+  bool is_regional_center = 5;
+  double latitude = 6;
+  double longitude = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  RegionResponse region = 10;
+  string slug = 11;
+}
+
+message CityWithRegionResponse {
+  CityResponse city = 1;
+  RegionResponse region = 2;
+}
+
+message GetCitiesResponse {
+  repeated CityResponse items = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CityFilter {
+  optional string name = 1;
+  optional uint32 region_id = 2;
+  optional int32 population_min = 3;
+  optional int32 population_max = 4;
+  repeated uint32 ids = 5;
+  optional string slug = 6;
+}
+
+// Запросы и ответы для аналитики
+
+message GetMostSearchedQueriesRequest {
+  int32 limit = 1;
+}
+
+message MostSearchedQueriesResponse {
+  repeated SearchQueryCount items = 1;
+}
+
+message SearchQueryCount {
+  string query = 1;
+  int64 count = 2;
+}
+
+message SearchStatsResponse {
+  int64 total_searches = 1;
+  int64 found_searches = 2;
+  double success_rate = 3;
+  double avg_processing_time_ms = 4;
+}
+
+// Общие структуры
+
+message SortOptions {
+  string field = 1; // Поле для сортировки: id, name, created_at, updated_at, population
+  string order = 2; // Порядок: asc, desc
+}
+
+message PaginationResponse {
+  int32 total = 1;
+  int32 page = 2;
+  int32 size = 3;
+  int32 pages = 4;
+}

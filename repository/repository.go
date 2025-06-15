@@ -34,6 +34,12 @@ type SortOptions struct {
 	Order string // Порядок сортировки: "asc" или "desc"
 }
 
+// BulkUpdateItem представляет элемент для массового обновления
+type BulkUpdateItem struct {
+	ID      uint                   // ID записи для обновления
+	Updates map[string]interface{} // Поля для обновления
+}
+
 // Repository определяет универсальный интерфейс репозитория
 type Repository[T BaseModel] interface {
 	// CRUD операции
@@ -41,6 +47,10 @@ type Repository[T BaseModel] interface {
 	GetByID(ctx context.Context, id uint) (*T, error)
 	Update(ctx context.Context, id uint, updates map[string]interface{}) (*T, error)
 	Delete(ctx context.Context, id uint) (*T, error)
+	
+	// Массовые операции
+	BulkCreate(ctx context.Context, entities []*T) error
+	BulkUpdate(ctx context.Context, updates []BulkUpdateItem) error
 	
 	// Операции с коллекциями
 	GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}, sort *SortOptions) ([]T, int64, error)
@@ -106,6 +116,79 @@ func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
 		return err
 	}
 	return nil
+}
+
+// BulkCreate создает множество записей в базе данных
+func (r *BaseRepository[T]) BulkCreate(ctx context.Context, entities []*T) error {
+	if len(entities) == 0 {
+		return nil
+	}
+
+	// Проверяем разрешения на запись
+	if err := r.checkWritePermission(ctx); err != nil {
+		return err
+	}
+
+	// Используем пакетную вставку для лучшей производительности
+	batchSize := 100
+	for i := 0; i < len(entities); i += batchSize {
+		end := i + batchSize
+		if end > len(entities) {
+			end = len(entities)
+		}
+		
+		batch := entities[i:end]
+		if err := r.getDB().WithContext(ctx).Create(&batch).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// BulkUpdate обновляет множество записей в базе данных
+func (r *BaseRepository[T]) BulkUpdate(ctx context.Context, updates []BulkUpdateItem) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Проверяем разрешения на запись
+	if err := r.checkWritePermission(ctx); err != nil {
+		return err
+	}
+
+	// Выполняем обновления в транзакции для обеспечения консистентности
+	return r.getDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, update := range updates {
+			if len(update.Updates) == 0 {
+				continue
+			}
+
+			var entity T
+			
+			// Применяем фильтр по владению
+			query := r.applyOwnershipFilter(ctx, tx)
+			
+			// Получаем запись для проверки существования и прав
+			if err := query.First(&entity, update.ID).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					continue // Пропускаем несуществующие записи
+				}
+				return err
+			}
+			
+			// Проверяем права владения
+			if err := r.checkOwnership(ctx, &entity); err != nil {
+				return err
+			}
+			
+			// Обновляем запись
+			if err := tx.Model(&entity).Updates(update.Updates).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // GetByID получает запись по ID

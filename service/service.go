@@ -38,6 +38,10 @@ type Service[T BaseEntity, R any] interface {
 	Update(ctx context.Context, id uint, input UpdateInput[T]) (*R, error)
 	Delete(ctx context.Context, id uint) (*R, error)
 	
+	// Массовые операции
+	BulkCreate(ctx context.Context, inputs []CreateInput[T]) ([]R, error)
+	BulkUpdate(ctx context.Context, updates []BulkUpdateInput[T]) ([]R, error)
+	
 	// Операции с коллекциями
 	GetAll(ctx context.Context, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error)
 	Search(ctx context.Context, keyword string, skip, limit int, filters map[string]interface{}, sort *repository.SortOptions) (*PaginationResponse[R], error)
@@ -57,6 +61,13 @@ type CreateInput[T BaseEntity] interface {
 
 // UpdateInput представляет входные данные для обновления
 type UpdateInput[T BaseEntity] interface {
+	ToUpdateMap() map[string]interface{}
+	Validate() error
+}
+
+// BulkUpdateInput представляет входные данные для массового обновления
+type BulkUpdateInput[T BaseEntity] interface {
+	GetID() uint
 	ToUpdateMap() map[string]interface{}
 	Validate() error
 }
@@ -113,6 +124,109 @@ func (s *BaseService[T, R]) Create(ctx context.Context, input CreateInput[T]) (*
 	// Преобразуем в ответ
 	response := s.transformer.Transform(entity)
 	return response, nil
+}
+
+// BulkCreate создает множество новых сущностей
+func (s *BaseService[T, R]) BulkCreate(ctx context.Context, inputs []CreateInput[T]) ([]R, error) {
+	if len(inputs) == 0 {
+		return []R{}, nil
+	}
+	
+	// Валидация всех входных данных
+	entities := make([]*T, 0, len(inputs))
+	for i, input := range inputs {
+		if err := input.Validate(); err != nil {
+			return nil, fmt.Errorf("ошибка валидации элемента %d: %v", i, err)
+		}
+		entities = append(entities, input.ToEntity())
+	}
+	
+	// Массовое создание в репозитории
+	if err := s.repo.BulkCreate(ctx, entities); err != nil {
+		return nil, fmt.Errorf("не удалось создать %s: %v", s.entityName, err)
+	}
+	
+	log.Printf("Создано %d новых %s", len(entities), s.entityName)
+	
+	// Публикуем событие о массовом создании
+	if s.publisher != nil {
+		s.publishBulkEvent(ctx, "bulk_created", entities)
+	}
+	
+	// Преобразуем сущности в ответы
+	responses := make([]R, 0, len(entities))
+	for _, entity := range entities {
+		response := s.transformer.Transform(entity)
+		responses = append(responses, *response)
+	}
+	
+	return responses, nil
+}
+
+// BulkUpdate обновляет множество сущностей
+func (s *BaseService[T, R]) BulkUpdate(ctx context.Context, inputs []BulkUpdateInput[T]) ([]R, error) {
+	if len(inputs) == 0 {
+		return []R{}, nil
+	}
+	
+	// Валидация всех входных данных и подготовка данных для обновления
+	updates := make([]repository.BulkUpdateItem, 0, len(inputs))
+	updatedIDs := make([]uint, 0, len(inputs))
+	
+	for i, input := range inputs {
+		if err := input.Validate(); err != nil {
+			return nil, fmt.Errorf("ошибка валидации элемента %d: %v", i, err)
+		}
+		
+		updateMap := input.ToUpdateMap()
+		if len(updateMap) == 0 {
+			continue // Пропускаем элементы без изменений
+		}
+		
+		updates = append(updates, repository.BulkUpdateItem{
+			ID:      input.GetID(),
+			Updates: updateMap,
+		})
+		updatedIDs = append(updatedIDs, input.GetID())
+	}
+	
+	if len(updates) == 0 {
+		return []R{}, nil
+	}
+	
+	// Массовое обновление в репозитории
+	if err := s.repo.BulkUpdate(ctx, updates); err != nil {
+		return nil, fmt.Errorf("не удалось обновить %s: %v", s.entityName, err)
+	}
+	
+	log.Printf("Обновлено %d %s", len(updates), s.entityName)
+	
+	// Получаем обновленные сущности для возврата
+	responses := make([]R, 0, len(updatedIDs))
+	for _, id := range updatedIDs {
+		entity, err := s.repo.GetByID(ctx, id)
+		if err != nil {
+			log.Printf("Ошибка при получении обновленной сущности %s с ID %d: %v", s.entityName, id, err)
+			continue
+		}
+		if entity != nil {
+			response := s.transformer.Transform(entity)
+			responses = append(responses, *response)
+		}
+	}
+	
+	// Публикуем событие о массовом обновлении
+	if s.publisher != nil {
+		entities := make([]*T, 0, len(responses))
+		for _, id := range updatedIDs {
+			if entity, err := s.repo.GetByID(ctx, id); err == nil && entity != nil {
+				entities = append(entities, entity)
+			}
+		}
+		s.publishBulkEvent(ctx, "bulk_updated", entities)
+	}
+	
+	return responses, nil
 }
 
 // GetByID получает сущность по ID
@@ -352,5 +466,33 @@ func (s *BaseService[T, R]) publishEvent(ctx context.Context, eventType string, 
 	eventName := fmt.Sprintf("%s.%s", s.entityName, eventType)
 	if err := s.publisher.PublishEvent(ctx, eventName, eventData); err != nil {
 		log.Printf("Ошибка при публикации события %s: %v", eventName, err)
+	}
+}
+
+// publishBulkEvent публикует событие массовой операции в очередь сообщений
+func (s *BaseService[T, R]) publishBulkEvent(ctx context.Context, eventType string, entities []*T) {
+	if len(entities) == 0 {
+		return
+	}
+	
+	entityIDs := make([]uint, 0, len(entities))
+	entityNames := make([]string, 0, len(entities))
+	
+	for _, entity := range entities {
+		entityIDs = append(entityIDs, (*entity).GetID())
+		entityNames = append(entityNames, (*entity).GetName())
+	}
+	
+	eventData := map[string]interface{}{
+		"ids":         entityIDs,
+		"names":       entityNames,
+		"count":       len(entities),
+		"event_type":  eventType,
+		"entity_type": s.entityName,
+	}
+	
+	eventName := fmt.Sprintf("%s.%s", s.entityName, eventType)
+	if err := s.publisher.PublishEvent(ctx, eventName, eventData); err != nil {
+		log.Printf("Ошибка при публикации массового события %s: %v", eventName, err)
 	}
 }
