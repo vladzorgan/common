@@ -34,6 +34,7 @@ type ServerOptions struct {
 	EnableHealth   bool
 	EnableSwagger  bool
 	TrustedProxies []string
+	SkipLogPaths   []string
 }
 
 // DefaultServerOptions возвращает опции по умолчанию
@@ -44,6 +45,7 @@ func DefaultServerOptions() *ServerOptions {
 		EnableHealth:   true,
 		EnableSwagger:  true,
 		TrustedProxies: []string{"127.0.0.1"},
+		SkipLogPaths:   []string{"/metrics", "/api/health"},
 	}
 }
 
@@ -67,7 +69,7 @@ func NewServer(cfg *config.BaseConfig, logger logging.Logger, options *ServerOpt
 
 	// Настраиваем middleware
 	router.Use(gin.Recovery())
-	router.Use(middleware.Logger(logger))
+	router.Use(middleware.LoggerWithSkipPaths(logger, options.SkipLogPaths))
 	router.Use(middleware.RequestID())
 
 	// Добавляем middleware для метрик

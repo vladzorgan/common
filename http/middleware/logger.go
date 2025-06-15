@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,18 @@ const RequestIDHeader = "X-Request-ID"
 
 // Logger возвращает middleware для логирования запросов
 func Logger(logger logging.Logger) gin.HandlerFunc {
+	return LoggerWithSkipPaths(logger, []string{})
+}
+
+// LoggerWithSkipPaths возвращает middleware для логирования запросов с возможностью пропуска определенных путей
+func LoggerWithSkipPaths(logger logging.Logger, skipPaths []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Проверяем, нужно ли пропустить логирование для данного пути
+		if shouldSkipLogging(c.Request.URL.Path, skipPaths) {
+			c.Next()
+			return
+		}
+
 		// Время начала запроса
 		startTime := time.Now()
 
@@ -68,6 +80,16 @@ func Logger(logger logging.Logger) gin.HandlerFunc {
 			reqLogger.Info("Request completed")
 		}
 	}
+}
+
+// shouldSkipLogging проверяет, нужно ли пропустить логирование для данного пути
+func shouldSkipLogging(path string, skipPaths []string) bool {
+	for _, skipPath := range skipPaths {
+		if strings.HasPrefix(path, skipPath) {
+			return true
+		}
+	}
+	return false
 }
 
 // RequestID возвращает middleware для генерации уникального идентификатора запроса
